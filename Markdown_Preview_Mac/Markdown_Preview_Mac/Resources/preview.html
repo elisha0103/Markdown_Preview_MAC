@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="github-markdown.min.css">
+    <style>
+        @media (prefers-color-scheme: light) {
+            body { background-color: #ffffff; }
+        }
+        @media (prefers-color-scheme: dark) {
+            body { background-color: #0d1117; }
+        }
+    </style>
+    <link rel="stylesheet" href="github-highlight-light.min.css" media="(prefers-color-scheme: light)">
+    <link rel="stylesheet" href="github-highlight-dark.min.css" media="(prefers-color-scheme: dark)">
+    <script src="marked.min.js"></script>
+    <script src="highlight.min.js"></script>
+    <script src="mermaid.min.js"></script>
+    <link rel="stylesheet" href="katex.min.css">
+    <script src="katex.min.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 24px;
+            font-family: -apple-system, BlinkMacSystemFont,
+                         "Segoe UI", Helvetica, Arial, sans-serif;
+        }
+        .markdown-body {
+            max-width: 980px;
+            margin: 0 auto;
+        }
+        @media print {
+            body { padding: 0; }
+            .markdown-body { max-width: none; }
+        }
+        .empty-state {
+            color: #656d76;
+            text-align: center;
+            padding-top: 100px;
+            font-size: 16px;
+        }
+        @media (prefers-color-scheme: dark) {
+            .empty-state { color: #848d97; }
+        }
+        .mermaid-container {
+            text-align: center;
+            margin: 16px 0;
+        }
+        .mermaid-container svg {
+            max-width: 100%;
+        }
+        .katex-block {
+            text-align: center;
+            margin: 16px 0;
+            overflow-x: auto;
+        }
+        .katex-error {
+            color: #d1242f;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <article class="markdown-body" id="content">
+        <p class="empty-state">Start writing Markdown to see the preview...</p>
+    </article>
+    <script>
+        // KaTeX extension for marked.js
+        var katexBlockExtension = {
+            name: 'katexBlock',
+            level: 'block',
+            start: function(src) { return src.indexOf('$$'); },
+            tokenizer: function(src) {
+                var match = src.match(/^\$\$([\s\S]+?)\$\$/);
+                if (match) {
+                    return {
+                        type: 'katexBlock',
+                        raw: match[0],
+                        text: match[1].trim()
+                    };
+                }
+            },
+            renderer: function(token) {
+                try {
+                    return '<div class="katex-block">' +
+                        katex.renderToString(token.text, {
+                            displayMode: true,
+                            throwOnError: false
+                        }) + '</div>';
+                } catch (e) {
+                    return '<div class="katex-error">' + e.message + '</div>';
+                }
+            }
+        };
+
+        var katexInlineExtension = {
+            name: 'katexInline',
+            level: 'inline',
+            start: function(src) {
+                var idx = src.indexOf('$');
+                if (idx === -1) return -1;
+                if (idx > 0 && src[idx-1] === '$') return -1;
+                return idx;
+            },
+            tokenizer: function(src) {
+                var match = src.match(/^\$([^\$\n]+?)\$/);
+                if (match) {
+                    return {
+                        type: 'katexInline',
+                        raw: match[0],
+                        text: match[1].trim()
+                    };
+                }
+            },
+            renderer: function(token) {
+                try {
+                    return katex.renderToString(token.text, {
+                        displayMode: false,
+                        throwOnError: false
+                    });
+                } catch (e) {
+                    return '<span class="katex-error">' + e.message + '</span>';
+                }
+            }
+        };
+
+        marked.use({ extensions: [katexBlockExtension, katexInlineExtension] });
+
+        var isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        mermaid.initialize({
+            startOnLoad: false,
+            theme: isDark ? 'dark' : 'default',
+            securityLevel: 'loose'
+        });
+
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', function(e) {
+            isDark = e.matches;
+            mermaid.initialize({
+                startOnLoad: false,
+                theme: isDark ? 'dark' : 'default',
+                securityLevel: 'loose'
+            });
+        });
+
+        marked.setOptions({
+            gfm: true,
+            breaks: false
+        });
+
+        var mermaidCounter = 0;
+
+        async function updateContent(markdown) {
+            var el = document.getElementById('content');
+            if (!markdown || markdown.trim() === '') {
+                el.innerHTML = '<p class="empty-state">Start writing Markdown to see the preview...</p>';
+                sendHeadings([]);
+                return;
+            }
+            el.innerHTML = marked.parse(markdown);
+
+            el.querySelectorAll('pre code').forEach(function(block) {
+                if (block.classList.contains('language-mermaid')) {
+                    return;
+                }
+                hljs.highlightElement(block);
+            });
+
+            await renderMermaidBlocks(el);
+            extractHeadings();
+        }
+
+        async function renderMermaidBlocks(el) {
+            var mermaidBlocks = el.querySelectorAll('code.language-mermaid');
+            for (var i = 0; i < mermaidBlocks.length; i++) {
+                var codeEl = mermaidBlocks[i];
+                var preEl = codeEl.parentElement;
+                var mermaidCode = codeEl.textContent;
+                var containerId = 'mermaid-' + (++mermaidCounter);
+
+                try {
+                    var result = await mermaid.render(containerId, mermaidCode);
+                    var container = document.createElement('div');
+                    container.className = 'mermaid-container';
+                    container.innerHTML = result.svg;
+                    preEl.replaceWith(container);
+                } catch (e) {
+                    preEl.style.color = '#d1242f';
+                    preEl.style.borderColor = '#d1242f';
+                    codeEl.textContent = 'Mermaid Error: ' + e.message;
+                }
+            }
+        }
+
+        function extractHeadings() {
+            var headings = [];
+            var el = document.getElementById('content');
+            el.querySelectorAll('h1, h2, h3, h4, h5, h6').forEach(function(h, index) {
+                var id = 'heading-' + index;
+                h.id = id;
+                headings.push({
+                    id: id,
+                    level: parseInt(h.tagName.charAt(1)),
+                    title: h.textContent
+                });
+            });
+            sendHeadings(headings);
+        }
+
+        function sendHeadings(headings) {
+            try {
+                webkit.messageHandlers.headingsHandler.postMessage(JSON.stringify(headings));
+            } catch(e) {}
+        }
+
+        function getScrollRatio() {
+            var scrollTop = window.scrollY || document.documentElement.scrollTop;
+            var scrollHeight = document.documentElement.scrollHeight - window.innerHeight;
+            if (scrollHeight <= 0) return 0;
+            return scrollTop / scrollHeight;
+        }
+
+        window.addEventListener('scroll', function() {
+            try {
+                webkit.messageHandlers.scrollHandler.postMessage(getScrollRatio());
+            } catch(e) {}
+        });
+    </script>
+</body>
+</html>
