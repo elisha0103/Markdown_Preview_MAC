@@ -102,13 +102,28 @@ struct ContentView: View {
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
         ToolbarItemGroup(placement: .primaryAction) {
-            Image(systemName: mcpBridge.connectedClients > 0
-                  ? "antenna.radiowaves.left.and.right"
-                  : "antenna.radiowaves.left.and.right.slash")
-                .foregroundStyle(mcpBridge.connectedClients > 0 ? .green : .secondary)
-                .help(mcpBridge.connectedClients > 0
-                    ? "Claude Code 연결됨 (\(mcpBridge.connectedClients))"
-                    : "Claude Code 대기 중 (port 52698)")
+            Button {
+                if mcpBridge.isRunning {
+                    mcpBridge.stop()
+                } else {
+                    mcpBridge.start()
+                }
+            } label: {
+                Image(systemName: mcpBridge.isRunning
+                      ? "antenna.radiowaves.left.and.right"
+                      : "antenna.radiowaves.left.and.right.slash")
+                    .foregroundStyle(
+                        mcpBridge.connectedClients > 0 ? .green :
+                        mcpBridge.isRunning ? .orange : .secondary
+                    )
+            }
+            .help(
+                mcpBridge.connectedClients > 0
+                    ? "Claude Code 연결됨 (\(mcpBridge.connectedClients)) — 클릭하여 끄기"
+                    : mcpBridge.isRunning
+                        ? "MCP 대기 중 (port 52698) — 클릭하여 끄기"
+                        : "MCP 꺼짐 — 클릭하여 켜기"
+            )
 
             Button {
                 if let sel = editorProxy.getSelection() {
