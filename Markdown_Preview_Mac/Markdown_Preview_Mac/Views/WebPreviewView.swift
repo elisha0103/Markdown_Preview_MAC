@@ -11,22 +11,24 @@ struct WebPreviewView: NSViewRepresentable {
 
     func makeNSView(context: Context) -> WKWebView {
         let config = WKWebViewConfiguration()
+        config.preferences.setValue(true, forKey: "developerExtrasEnabled")
 
         let userController = WKUserContentController()
         userController.add(context.coordinator, name: "headingsHandler")
         userController.add(context.coordinator, name: "scrollHandler")
         config.userContentController = userController
 
-        let webView = WKWebView(frame: NSRect(x: 0, y: 0, width: 100, height: 100), configuration: config)
+        let webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = context.coordinator
 
         bridge.webView = webView
 
+        // Load preview.html from bundle
         if let htmlURL = Bundle.main.url(forResource: "preview", withExtension: "html") {
-            webView.loadFileURL(
-                htmlURL,
-                allowingReadAccessTo: htmlURL.deletingLastPathComponent()
-            )
+            webView.loadFileURL(htmlURL, allowingReadAccessTo: htmlURL.deletingLastPathComponent())
+            print("[Preview] Loading preview.html from: \(htmlURL.path)")
+        } else {
+            print("[Preview] ERROR: preview.html not found in bundle!")
         }
 
         return webView
@@ -48,11 +50,24 @@ struct WebPreviewView: NSViewRepresentable {
 
         nonisolated func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             MainActor.assumeIsolated {
+                print("[Preview] Page loaded successfully")
                 isPageLoaded = true
                 if let pending = pendingMarkdown {
                     performUpdate(markdown: pending, in: webView)
                     pendingMarkdown = nil
                 }
+            }
+        }
+
+        nonisolated func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: any Error) {
+            MainActor.assumeIsolated {
+                print("[Preview] Navigation failed: \(error.localizedDescription)")
+            }
+        }
+
+        nonisolated func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: any Error) {
+            MainActor.assumeIsolated {
+                print("[Preview] Provisional navigation failed: \(error.localizedDescription)")
             }
         }
 
@@ -64,7 +79,7 @@ struct WebPreviewView: NSViewRepresentable {
 
             debounceTask?.cancel()
             debounceTask = Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(300))
+                try? await Task.sleep(for: .milliseconds(150))
                 guard !Task.isCancelled else { return }
                 guard let webView = bridge.webView else { return }
                 performUpdate(markdown: markdown, in: webView)
@@ -73,11 +88,16 @@ struct WebPreviewView: NSViewRepresentable {
 
         private func performUpdate(markdown: String, in webView: WKWebView) {
             Task { @MainActor in
-                _ = try? await webView.callAsyncJavaScript(
-                    "await updateContent(markdown)",
-                    arguments: ["markdown": markdown],
-                    contentWorld: .page
-                )
+                do {
+                    let result = try await webView.callAsyncJavaScript(
+                        "await updateContent(markdown)",
+                        arguments: ["markdown": markdown],
+                        contentWorld: .page
+                    )
+                    print("[Preview] updateContent succeeded: \(String(describing: result))")
+                } catch {
+                    print("[Preview] updateContent FAILED: \(error)")
+                }
             }
         }
 

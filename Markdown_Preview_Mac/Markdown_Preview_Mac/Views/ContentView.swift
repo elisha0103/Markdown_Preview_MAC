@@ -2,7 +2,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct ContentView: View {
-    @State private var text = ""
+    @State private var text = "# Hello\n\nType **markdown** here..."
     @State private var currentFileURL: URL?
     @State private var previewMode: PreviewMode = .split
     @State private var webViewBridge = WebViewBridge()

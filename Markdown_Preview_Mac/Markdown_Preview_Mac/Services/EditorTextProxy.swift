@@ -2,72 +2,93 @@ import AppKit
 
 @Observable
 class EditorTextProxy {
-    weak var textView: NSTextView?
+    weak var textField: NSTextField?
+    var savedRange: NSRange?
 
-    func wrapSelection(prefix: String, suffix: String) {
-        guard let textView else { return }
-        let range = textView.selectedRange()
-        let selected = (textView.string as NSString).substring(with: range)
+    /// Restores focus to the text field, gets the field editor, restores selection, then runs the action.
+    private func withFieldEditor(_ action: (NSTextView) -> Void) {
+        guard let textField else { return }
 
-        let replacement: String
-        let newCursorOffset: Int
-
-        if selected.isEmpty {
-            replacement = prefix + suffix
-            newCursorOffset = prefix.count
-        } else {
-            replacement = prefix + selected + suffix
-            newCursorOffset = replacement.count
+        // If the field editor is already active, use it directly
+        if let editor = textField.currentEditor() as? NSTextView {
+            action(editor)
+            return
         }
 
-        textView.insertText(replacement, replacementRange: range)
+        // Restore focus to the text field
+        textField.window?.makeFirstResponder(textField)
+        guard let editor = textField.currentEditor() as? NSTextView else { return }
 
-        if selected.isEmpty {
-            let newPos = range.location + newCursorOffset
-            textView.setSelectedRange(NSRange(location: newPos, length: 0))
-        } else {
-            let newPos = range.location + newCursorOffset
-            textView.setSelectedRange(NSRange(location: newPos, length: 0))
+        // Restore the saved cursor/selection position
+        if let range = savedRange,
+           range.location + range.length <= (editor.string as NSString).length {
+            editor.setSelectedRange(range)
+        }
+
+        action(editor)
+    }
+
+    func wrapSelection(prefix: String, suffix: String) {
+        withFieldEditor { editor in
+            let range = editor.selectedRange()
+            let selected = (editor.string as NSString).substring(with: range)
+
+            let replacement: String
+            if selected.isEmpty {
+                replacement = prefix + suffix
+            } else {
+                replacement = prefix + selected + suffix
+            }
+
+            editor.insertText(replacement, replacementRange: range)
+
+            if selected.isEmpty {
+                let newPos = range.location + prefix.count
+                editor.setSelectedRange(NSRange(location: newPos, length: 0))
+            }
         }
     }
 
     func insertAtLineStart(_ prefix: String) {
-        guard let textView else { return }
-        let range = textView.selectedRange()
-        let text = textView.string as NSString
-        let lineRange = text.lineRange(for: range)
-        let lineStart = lineRange.location
+        withFieldEditor { editor in
+            let range = editor.selectedRange()
+            let text = editor.string as NSString
+            let lineRange = text.lineRange(for: range)
+            let lineStart = lineRange.location
 
-        textView.insertText(prefix, replacementRange: NSRange(location: lineStart, length: 0))
-        textView.setSelectedRange(NSRange(
-            location: range.location + prefix.count,
-            length: range.length
-        ))
+            editor.insertText(prefix, replacementRange: NSRange(location: lineStart, length: 0))
+            editor.setSelectedRange(NSRange(
+                location: range.location + prefix.count,
+                length: range.length
+            ))
+        }
     }
 
     func insertText(_ text: String) {
-        guard let textView else { return }
-        let range = textView.selectedRange()
-        textView.insertText(text, replacementRange: range)
+        withFieldEditor { editor in
+            let range = editor.selectedRange()
+            editor.insertText(text, replacementRange: range)
+        }
     }
 
     func insertBlock(_ block: String) {
-        guard let textView else { return }
-        let range = textView.selectedRange()
-        let text = textView.string as NSString
+        withFieldEditor { editor in
+            let range = editor.selectedRange()
+            let text = editor.string as NSString
 
-        var prefix = ""
-        if range.location > 0 && text.character(at: range.location - 1) != 0x0A {
-            prefix = "\n"
+            var prefix = ""
+            if range.location > 0 && text.character(at: range.location - 1) != 0x0A {
+                prefix = "\n"
+            }
+
+            var suffix = ""
+            if range.location + range.length < text.length
+                && text.character(at: range.location + range.length) != 0x0A {
+                suffix = "\n"
+            }
+
+            let insertion = prefix + block + suffix
+            editor.insertText(insertion, replacementRange: range)
         }
-
-        var suffix = ""
-        if range.location + range.length < text.length
-            && text.character(at: range.location + range.length) != 0x0A {
-            suffix = "\n"
-        }
-
-        let insertion = prefix + block + suffix
-        textView.insertText(insertion, replacementRange: range)
     }
 }
