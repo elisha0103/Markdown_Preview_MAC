@@ -95,6 +95,9 @@ struct WebPreviewView: NSViewRepresentable {
                         contentWorld: .page
                     )
                     print("[Preview] updateContent succeeded: \(String(describing: result))")
+
+                    // Re-apply diff highlights and annotations after content render
+                    bridge.afterContentUpdate?()
                 } catch {
                     print("[Preview] updateContent FAILED: \(error)")
                 }
