@@ -84,9 +84,11 @@ struct ContentView: View {
         }) {
             annotationPopoverContent
         }
-        .onCommand(#selector(NSDocument.save(_:))) { handleSave() }
-        .onCommand(#selector(AppCommands.saveAs(_:))) { handleSaveAs() }
-        .onCommand(#selector(AppCommands.openDocument(_:))) { handleOpen() }
+        .focusedSceneValue(\.fileActions, FileActions(
+            open: { handleOpen() },
+            save: { handleSave() },
+            saveAs: { handleSaveAs() }
+        ))
         .task { setupIntegration() }
         .onChange(of: self.doc.text) { _, newText in
             handleTextChange(newText)
@@ -98,8 +100,3 @@ struct ContentView: View {
     }
 }
 
-// Helper for onCommand selectors
-@objc private protocol AppCommands {
-    func saveAs(_ sender: Any?)
-    func openDocument(_ sender: Any?)
-}
