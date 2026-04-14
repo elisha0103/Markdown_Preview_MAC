@@ -1,0 +1,12 @@
+{
+  "name": "markdown-preview-mcp",
+  "version": "1.0.0",
+  "type": "module",
+  "bin": {
+    "markdown-preview-mcp": "./index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.22.0"
+  }
+}
