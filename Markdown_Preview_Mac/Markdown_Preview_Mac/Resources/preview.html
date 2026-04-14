@@ -59,6 +59,68 @@
             color: #d1242f;
             font-size: 0.9em;
         }
+        /* Diff highlights */
+        .diff-claude {
+            background: rgba(59, 130, 246, 0.15);
+            border-left: 3px solid rgba(59, 130, 246, 0.6);
+            padding-left: 8px;
+            margin-left: -11px;
+        }
+        .diff-user {
+            background: rgba(249, 115, 22, 0.15);
+            border-left: 3px solid rgba(249, 115, 22, 0.6);
+            padding-left: 8px;
+            margin-left: -11px;
+        }
+        @media (prefers-color-scheme: dark) {
+            .diff-claude {
+                background: rgba(59, 130, 246, 0.1);
+                border-left-color: rgba(96, 165, 250, 0.5);
+            }
+            .diff-user {
+                background: rgba(249, 115, 22, 0.1);
+                border-left-color: rgba(251, 146, 60, 0.5);
+            }
+        }
+        /* Annotation markers */
+        .annotation-marker {
+            position: relative;
+        }
+        .annotation-marker::after {
+            content: attr(data-note);
+            position: absolute;
+            right: -24px;
+            top: 0;
+            width: 18px;
+            height: 18px;
+            background: #fbbf24;
+            border-radius: 50%;
+            font-size: 10px;
+            line-height: 18px;
+            text-align: center;
+            color: #000;
+            cursor: help;
+            opacity: 0.8;
+        }
+        .annotation-highlight {
+            background: rgba(251, 191, 36, 0.2);
+            border-bottom: 2px solid rgba(251, 191, 36, 0.6);
+        }
+        .annotation-tooltip {
+            display: none;
+            position: absolute;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            max-width: 300px;
+            z-index: 100;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        .annotation-marker:hover .annotation-tooltip {
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -225,6 +287,62 @@
                 webkit.messageHandlers.scrollHandler.postMessage(getScrollRatio());
             } catch(e) {}
         });
+
+        // Diff highlighting: wraps lines that changed with colored markers
+        function updateDiffHighlights(changes) {
+            // Remove existing diff markers
+            document.querySelectorAll('.diff-claude, .diff-user').forEach(function(el) {
+                var parent = el.parentNode;
+                while (el.firstChild) parent.insertBefore(el.firstChild, el);
+                parent.removeChild(el);
+            });
+
+            if (!changes || changes.length === 0) return;
+
+            var el = document.getElementById('content');
+            var allElements = el.querySelectorAll('h1,h2,h3,h4,h5,h6,p,li,pre,blockquote,table,div.katex-block,div.mermaid-container');
+
+            // Map source lines to rendered elements (approximate)
+            changes.forEach(function(change) {
+                var idx = change.lineStart - 1;
+                if (idx >= 0 && idx < allElements.length) {
+                    var target = allElements[idx];
+                    var cls = change.author === 'claude' ? 'diff-claude' : 'diff-user';
+                    target.classList.add(cls);
+                }
+            });
+        }
+
+        // Annotation markers: show notes on specific lines
+        function updateAnnotations(annotations) {
+            // Remove existing annotation markers
+            document.querySelectorAll('.annotation-highlight').forEach(function(el) {
+                el.classList.remove('annotation-highlight');
+            });
+            document.querySelectorAll('.annotation-tooltip').forEach(function(el) {
+                el.remove();
+            });
+
+            if (!annotations || annotations.length === 0) return;
+
+            var el = document.getElementById('content');
+            var allElements = el.querySelectorAll('h1,h2,h3,h4,h5,h6,p,li,pre,blockquote,table,div.katex-block,div.mermaid-container');
+
+            annotations.forEach(function(ann) {
+                var idx = ann.startLine - 1;
+                if (idx >= 0 && idx < allElements.length) {
+                    var target = allElements[idx];
+                    target.classList.add('annotation-highlight', 'annotation-marker');
+                    target.setAttribute('data-note', '\u{1F4DD}');
+
+                    var tooltip = document.createElement('div');
+                    tooltip.className = 'annotation-tooltip';
+                    tooltip.textContent = ann.note;
+                    target.style.position = 'relative';
+                    target.appendChild(tooltip);
+                }
+            });
+        }
     </script>
 </body>
 </html>
