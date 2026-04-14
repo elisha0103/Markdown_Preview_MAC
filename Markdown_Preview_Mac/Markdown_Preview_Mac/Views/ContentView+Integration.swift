@@ -101,6 +101,17 @@ extension ContentView {
                     refreshOverlays()
                 }
             )
+        } else {
+            VStack(spacing: 12) {
+                Text("텍스트를 먼저 선택하세요")
+                    .foregroundStyle(.secondary)
+                Button("닫기") {
+                    showAnnotationPopover = false
+                }
+                .keyboardShortcut(.cancelAction)
+            }
+            .padding()
+            .frame(width: 240)
         }
     }
 }

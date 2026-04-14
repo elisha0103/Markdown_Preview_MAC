@@ -37,21 +37,21 @@ extension ContentView {
                         startLine: sel.startLine,
                         endLine: sel.endLine
                     )
-                    showAnnotationPopover = true
                 }
+                showAnnotationPopover = true
             } label: {
                 Image(systemName: "note.text.badge.plus")
             }
-            .help("주석 추가 (⌘M)")
-            .keyboardShortcut("m", modifiers: .command)
+            .help("주석 추가 (⌥N)")
+            .keyboardShortcut("n", modifiers: .option)
 
             Button {
                 diffTracker.clearChanges()
                 refreshOverlays()
             } label: {
-                Image(systemName: "arrow.counterclockwise")
+                Image(systemName: "eraser.line.dashed")
             }
-            .help("변경 하이라이트 초기화")
+            .help("Diff 초기화")
 
             Button {
                 withAnimation(.easeInOut(duration: 0.2)) {
