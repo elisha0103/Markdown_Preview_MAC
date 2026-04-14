@@ -91,4 +91,54 @@ class EditorTextProxy {
             editor.insertText(insertion, replacementRange: range)
         }
     }
+
+    // MARK: - Selection for MCP
+
+    func getSelection() -> (text: String, startLine: Int, endLine: Int)? {
+        guard let textField else { return nil }
+
+        // Try active field editor first, fall back to savedRange
+        let range: NSRange
+        let fullText: String
+
+        if let editor = textField.currentEditor() as? NSTextView {
+            range = editor.selectedRange()
+            fullText = editor.string
+        } else if let saved = savedRange {
+            range = saved
+            fullText = textField.stringValue
+        } else {
+            return nil
+        }
+
+        guard range.length > 0 else { return nil }
+
+        let nsText = fullText as NSString
+        guard range.location + range.length <= nsText.length else { return nil }
+
+        let selectedText = nsText.substring(with: range)
+        let startLine = lineNumber(at: range.location, in: fullText)
+        let endLine = lineNumber(at: range.location + range.length - 1, in: fullText)
+
+        return (text: selectedText, startLine: startLine, endLine: endLine)
+    }
+
+    func getCaretLine() -> Int {
+        let location: Int
+        if let textField, let editor = textField.currentEditor() as? NSTextView {
+            location = editor.selectedRange().location
+            return lineNumber(at: location, in: editor.string)
+        } else if let saved = savedRange {
+            location = saved.location
+            return lineNumber(at: location, in: textField?.stringValue ?? "")
+        }
+        return 1
+    }
+
+    private func lineNumber(at offset: Int, in text: String) -> Int {
+        let nsText = text as NSString
+        let safeOffset = min(offset, nsText.length)
+        let prefix = nsText.substring(to: safeOffset)
+        return prefix.components(separatedBy: "\n").count
+    }
 }
