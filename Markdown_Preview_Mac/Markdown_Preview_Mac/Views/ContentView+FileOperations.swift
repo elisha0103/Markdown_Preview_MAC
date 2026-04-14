@@ -31,6 +31,7 @@ extension ContentView {
         do {
             try doc.text.write(to: url, atomically: true, encoding: .utf8)
             diffTracker.setBaseline(doc.text)
+            refreshOverlays()
         } catch {
             exportError = "Failed to save: \(error.localizedDescription)"
             showExportError = true
@@ -50,6 +51,7 @@ extension ContentView {
             try doc.text.write(to: url, atomically: true, encoding: .utf8)
             doc.currentFileURL = url
             diffTracker.setBaseline(doc.text)
+            refreshOverlays()
         } catch {
             exportError = "Failed to save: \(error.localizedDescription)"
             showExportError = true
