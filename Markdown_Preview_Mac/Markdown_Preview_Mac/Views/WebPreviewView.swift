@@ -43,6 +43,7 @@ struct WebPreviewView: NSViewRepresentable {
         private var isPageLoaded = false
         private var pendingMarkdown: String?
         private var debounceTask: Task<Void, Never>?
+        private var lastRenderedMarkdown: String?
 
         init(bridge: WebViewBridge) {
             self.bridge = bridge
@@ -77,6 +78,9 @@ struct WebPreviewView: NSViewRepresentable {
                 return
             }
 
+            // Skip if content hasn't changed (prevents re-render on resize/mode switch)
+            guard markdown != lastRenderedMarkdown else { return }
+
             debounceTask?.cancel()
             debounceTask = Task { @MainActor in
                 try? await Task.sleep(for: .milliseconds(150))
@@ -94,6 +98,7 @@ struct WebPreviewView: NSViewRepresentable {
                         arguments: ["markdown": markdown],
                         contentWorld: .page
                     )
+                    lastRenderedMarkdown = markdown
                     print("[Preview] updateContent succeeded: \(String(describing: result))")
 
                     // Re-apply diff highlights and annotations after content render
