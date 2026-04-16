@@ -42,8 +42,8 @@ class DiffTracker {
         }
 
         // Merge adjacent inserts/deletes at same position into "modified"
+        // baseLines는 setBaseline()에서만 변경 (저장/파일열기 시)
         changes = mergeChanges(newChanges, author: author)
-        baseLines = newLines
     }
 
     func clearChanges() {

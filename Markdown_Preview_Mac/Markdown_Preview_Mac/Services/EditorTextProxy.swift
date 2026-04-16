@@ -2,34 +2,38 @@ import AppKit
 
 @Observable
 class EditorTextProxy {
-    weak var textField: NSTextField?
+    weak var textView: NSTextView?
     var savedRange: NSRange?
 
-    /// Restores focus to the text field, gets the field editor, restores selection, then runs the action.
-    private func withFieldEditor(_ action: (NSTextView) -> Void) {
-        guard let textField else { return }
+    // MARK: - View 캐싱 (모드 전환 시 재사용)
+    @ObservationIgnored var cachedScrollView: NSScrollView?
 
-        // If the field editor is already active, use it directly
-        if let editor = textField.currentEditor() as? NSTextView {
-            action(editor)
+    // MARK: - 직접 프리뷰 업데이트 (SwiftUI 우회)
+    @ObservationIgnored var onTextChanged: ((String) -> Void)?
+
+    /// Restores focus to the text view if needed, then runs the action.
+    private func withTextView(_ action: (NSTextView) -> Void) {
+        guard let textView else { return }
+
+        if textView.window?.firstResponder === textView {
+            action(textView)
             return
         }
 
-        // Restore focus to the text field
-        textField.window?.makeFirstResponder(textField)
-        guard let editor = textField.currentEditor() as? NSTextView else { return }
+        // Restore focus
+        textView.window?.makeFirstResponder(textView)
 
         // Restore the saved cursor/selection position
         if let range = savedRange,
-           range.location + range.length <= (editor.string as NSString).length {
-            editor.setSelectedRange(range)
+           range.location + range.length <= (textView.string as NSString).length {
+            textView.setSelectedRange(range)
         }
 
-        action(editor)
+        action(textView)
     }
 
     func wrapSelection(prefix: String, suffix: String) {
-        withFieldEditor { editor in
+        withTextView { editor in
             let range = editor.selectedRange()
             let selected = (editor.string as NSString).substring(with: range)
 
@@ -50,7 +54,7 @@ class EditorTextProxy {
     }
 
     func insertAtLineStart(_ prefix: String) {
-        withFieldEditor { editor in
+        withTextView { editor in
             let range = editor.selectedRange()
             let text = editor.string as NSString
             let lineRange = text.lineRange(for: range)
@@ -65,14 +69,14 @@ class EditorTextProxy {
     }
 
     func insertText(_ text: String) {
-        withFieldEditor { editor in
+        withTextView { editor in
             let range = editor.selectedRange()
             editor.insertText(text, replacementRange: range)
         }
     }
 
     func insertBlock(_ block: String) {
-        withFieldEditor { editor in
+        withTextView { editor in
             let range = editor.selectedRange()
             let text = editor.string as NSString
 
@@ -95,18 +99,17 @@ class EditorTextProxy {
     // MARK: - Selection for MCP
 
     func getSelection() -> (text: String, startLine: Int, endLine: Int)? {
-        guard let textField else { return nil }
+        guard let textView else { return nil }
 
-        // Try active field editor first, fall back to savedRange
         let range: NSRange
         let fullText: String
 
-        if let editor = textField.currentEditor() as? NSTextView {
-            range = editor.selectedRange()
-            fullText = editor.string
+        if textView.window?.firstResponder === textView {
+            range = textView.selectedRange()
+            fullText = textView.string
         } else if let saved = savedRange {
             range = saved
-            fullText = textField.stringValue
+            fullText = textView.string
         } else {
             return nil
         }
@@ -124,15 +127,21 @@ class EditorTextProxy {
     }
 
     func getCaretLine() -> Int {
+        guard let textView else { return 1 }
         let location: Int
-        if let textField, let editor = textField.currentEditor() as? NSTextView {
-            location = editor.selectedRange().location
-            return lineNumber(at: location, in: editor.string)
+        if textView.window?.firstResponder === textView {
+            location = textView.selectedRange().location
         } else if let saved = savedRange {
             location = saved.location
-            return lineNumber(at: location, in: textField?.stringValue ?? "")
+        } else {
+            return 1
         }
-        return 1
+        return lineNumber(at: location, in: textView.string)
+    }
+
+    /// 에디터에서 현재 최신 텍스트를 가져옴 (저장/MCP용)
+    func currentText() -> String? {
+        textView?.string
     }
 
     private func lineNumber(at offset: Int, in text: String) -> Int {

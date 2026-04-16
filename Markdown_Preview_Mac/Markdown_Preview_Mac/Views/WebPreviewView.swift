@@ -10,6 +10,25 @@ struct WebPreviewView: NSViewRepresentable {
     }
 
     func makeNSView(context: Context) -> WKWebView {
+        // 캐시된 WebView가 있으면 재사용 (모드 전환 시)
+        if let cached = bridge.cachedWebView {
+            // Coordinator 참조 업데이트
+            cached.navigationDelegate = context.coordinator
+
+            // 스크립트 메시지 핸들러를 새 Coordinator로 교체
+            let userController = cached.configuration.userContentController
+            userController.removeAllScriptMessageHandlers()
+            userController.add(context.coordinator, name: "headingsHandler")
+            userController.add(context.coordinator, name: "scrollHandler")
+
+            // 이미 로드된 페이지이므로 바로 사용 가능
+            context.coordinator.markAsLoaded()
+            bridge.webView = cached
+            print("[Preview] Reusing cached WKWebView")
+            return cached
+        }
+
+        // 새 WebView 생성
         let config = WKWebViewConfiguration()
         config.preferences.setValue(true, forKey: "developerExtrasEnabled")
 
@@ -22,6 +41,7 @@ struct WebPreviewView: NSViewRepresentable {
         webView.navigationDelegate = context.coordinator
 
         bridge.webView = webView
+        bridge.cachedWebView = webView
 
         // Load preview.html from bundle
         if let htmlURL = Bundle.main.url(forResource: "preview", withExtension: "html") {
@@ -43,10 +63,14 @@ struct WebPreviewView: NSViewRepresentable {
         private var isPageLoaded = false
         private var pendingMarkdown: String?
         private var debounceTask: Task<Void, Never>?
-        private var lastRenderedMarkdown: String?
 
         init(bridge: WebViewBridge) {
             self.bridge = bridge
+        }
+
+        /// 캐시된 WebView 재사용 시 호출 — 이미 페이지가 로드된 상태로 표시
+        func markAsLoaded() {
+            isPageLoaded = true
         }
 
         nonisolated func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
@@ -78,8 +102,8 @@ struct WebPreviewView: NSViewRepresentable {
                 return
             }
 
-            // Skip if content hasn't changed (prevents re-render on resize/mode switch)
-            guard markdown != lastRenderedMarkdown else { return }
+            // Bridge에 저장된 마지막 렌더링 내용과 비교 (리사이즈/모드 전환 시 불필요한 재렌더링 방지)
+            guard markdown != bridge.lastRenderedMarkdown else { return }
 
             debounceTask?.cancel()
             debounceTask = Task { @MainActor in
@@ -98,7 +122,7 @@ struct WebPreviewView: NSViewRepresentable {
                         arguments: ["markdown": markdown],
                         contentWorld: .page
                     )
-                    lastRenderedMarkdown = markdown
+                    bridge.lastRenderedMarkdown = markdown
                     print("[Preview] updateContent succeeded: \(String(describing: result))")
 
                     // Re-apply diff highlights and annotations after content render

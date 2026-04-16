@@ -22,6 +22,8 @@ extension ContentView {
     }
 
     func handleSave() {
+        syncTextFromEditor()
+
         guard let url = doc.currentFileURL else {
             handleSaveAs()
             return
@@ -40,6 +42,8 @@ extension ContentView {
     }
 
     func handleSaveAs() {
+        syncTextFromEditor()
+
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.markdownText]
         panel.nameFieldStringValue = doc.currentFileURL?.lastPathComponent ?? "untitled.md"
@@ -81,6 +85,8 @@ extension ContentView {
     }
 
     func handleHTMLExport() async {
+        syncTextFromEditor()
+
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.html]
         panel.nameFieldStringValue = baseFilename + ".html"

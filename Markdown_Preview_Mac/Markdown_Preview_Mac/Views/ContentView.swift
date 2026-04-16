@@ -31,6 +31,7 @@ struct ContentView: View {
     @State var annotationStore = AnnotationStore()
     @State var showAnnotationPopover = false
     @State var pendingAnnotation: AnnotationSelection?
+    @State var diffDebounceTask: Task<Void, Never>?
 
     var body: some View {
         @Bindable var doc = doc

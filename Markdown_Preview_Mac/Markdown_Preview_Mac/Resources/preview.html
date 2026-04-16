@@ -29,6 +29,7 @@
         .markdown-body {
             max-width: 980px;
             margin: 0 auto;
+            contain: layout style paint;
         }
         @media print {
             body { padding: 0; }
@@ -288,25 +289,48 @@
             } catch(e) {}
         });
 
-        // Diff highlighting: adds colored classes to changed elements
+        // Markdown 문법을 제거하여 렌더링된 텍스트와 비교할 수 있게 변환
+        function stripMarkdown(text) {
+            return text
+                .replace(/^#{1,6}\s+/, '')
+                .replace(/^\s*[-*+]\s+(\[.\]\s+)?/, '')
+                .replace(/^\s*\d+\.\s+/, '')
+                .replace(/^>\s+/, '')
+                .replace(/\*\*(.+?)\*\*/g, '$1')
+                .replace(/__(.+?)__/g, '$1')
+                .replace(/\*(.+?)\*/g, '$1')
+                .replace(/_(.+?)_/g, '$1')
+                .replace(/~~(.+?)~~/g, '$1')
+                .replace(/`(.+?)`/g, '$1')
+                .replace(/\[(.+?)\]\(.+?\)/g, '$1')
+                .replace(/!\[.*?\]\(.+?\)/g, '')
+                .trim();
+        }
+
+        // Diff highlighting: 변경된 텍스트를 렌더링된 요소에서 찾아 하이라이트
         function updateDiffHighlights(changes) {
-            // Remove existing diff classes
             document.querySelectorAll('.diff-claude, .diff-user').forEach(function(el) {
                 el.classList.remove('diff-claude', 'diff-user');
             });
 
             if (!changes || changes.length === 0) return;
 
-            var el = document.getElementById('content');
-            var allElements = el.querySelectorAll('h1,h2,h3,h4,h5,h6,p,li,pre,blockquote,table,div.katex-block,div.mermaid-container');
+            var content = document.getElementById('content');
+            var blocks = content.querySelectorAll('h1,h2,h3,h4,h5,h6,p,li,pre,blockquote,table,div.katex-block,div.mermaid-container');
 
-            // Map source lines to rendered elements (approximate)
             changes.forEach(function(change) {
-                var idx = change.lineStart - 1;
-                if (idx >= 0 && idx < allElements.length) {
-                    var target = allElements[idx];
-                    var cls = change.author === 'claude' ? 'diff-claude' : 'diff-user';
-                    target.classList.add(cls);
+                if (change.type === 'deleted') return;
+                var cls = change.author === 'claude' ? 'diff-claude' : 'diff-user';
+                var searchText = stripMarkdown(change.text);
+                if (!searchText) return;
+
+                // 렌더링된 요소 중 변경된 텍스트를 포함하는 요소를 찾음
+                for (var i = 0; i < blocks.length; i++) {
+                    var elemText = blocks[i].textContent;
+                    if (elemText.indexOf(searchText) !== -1) {
+                        blocks[i].classList.add(cls);
+                        break;
+                    }
                 }
             });
         }
