@@ -14,6 +14,11 @@ class AnnotationStore {
         annotations.append(annotation)
     }
 
+    func update(id: UUID, note: String) {
+        guard let index = annotations.firstIndex(where: { $0.id == id }) else { return }
+        annotations[index].note = note
+    }
+
     func remove(id: UUID) {
         annotations.removeAll { $0.id == id }
     }

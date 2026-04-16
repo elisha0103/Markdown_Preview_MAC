@@ -30,6 +30,7 @@ struct ContentView: View {
     @State var diffTracker = DiffTracker()
     @State var annotationStore = AnnotationStore()
     @State var showAnnotationPopover = false
+    @State var showAnnotationInspector = false
     @State var pendingAnnotation: AnnotationSelection?
     @State var diffDebounceTask: Task<Void, Never>?
 
@@ -69,6 +70,14 @@ struct ContentView: View {
                     bridge: webViewBridge
                 )
                 .frame(minWidth: 300)
+            }
+
+            if showAnnotationInspector {
+                Divider()
+                AnnotationInspectorView(
+                    annotationStore: annotationStore,
+                    onRefresh: { refreshOverlays() }
+                )
             }
         }
         .frame(minWidth: 600, minHeight: 400)

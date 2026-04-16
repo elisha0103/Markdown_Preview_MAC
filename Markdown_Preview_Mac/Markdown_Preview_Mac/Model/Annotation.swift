@@ -2,7 +2,7 @@ import Foundation
 
 struct Annotation: Identifiable, Codable {
     let id: UUID
-    let note: String
+    var note: String
     let selectedText: String
     let startLine: Int
     let endLine: Int

@@ -46,6 +46,16 @@ extension ContentView {
             .keyboardShortcut("n", modifiers: .option)
 
             Button {
+                withAnimation(.easeInOut(duration: 0.2)) {
+                    showAnnotationInspector.toggle()
+                }
+            } label: {
+                Image(systemName: "list.bullet.rectangle.portrait")
+            }
+            .help("주석 목록 (⌥A)")
+            .keyboardShortcut("a", modifiers: .option)
+
+            Button {
                 diffTracker.clearChanges()
                 refreshOverlays()
             } label: {
